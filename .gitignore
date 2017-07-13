@@ -1,0 +1,13 @@
+*.egg-info
+*.iml
+*.pyc
+*.swo
+*.swp
+*~
+.DS_Store
+tmp/
+temp/
+test/
+*.sublime-project
+*.sublime-workspace
+*.vscode
