@@ -8,6 +8,8 @@
 
 ######## Global Variables
 VERSION="0.0.2"
+# Set you S3 Bucket name
+S3_BUCKET="zfs_data"
 # Grab our serial number through dmidecode, or just use the short hostname.
 # First let's see if dmidecode is installed
 which dmidecode >> /dev/null 2>&1
@@ -267,7 +269,7 @@ check_remote_snapshot() {
     # Yea, this method of checking if it exists looks pretty dumb, but it's
     # a limitation of s3cmd.  It will return a 0 exit code even if the object
     # does not exist.
-    ${S3} ls -H s3://zfs/${SERIAL}/${POOL}.${SNAPSHOT}.gz | grep ${SNAPSHOT} \
+    ${S3} ls -H s3://${S3_BUCKET}/${SERIAL}/${POOL}.${SNAPSHOT}.gz | grep ${SNAPSHOT} \
     >> /dev/null 2>&1
     if [ $? -eq 0 ] ; then
       if [ -z ${DEFAULT_YES} ] ; then
@@ -309,7 +311,7 @@ delete_local_snapshot () {
 # Simple function to delete the snapshot from S3
 delete_remote_snapshot () {
     local POOL=$1
-    ${S3} rm s3://zfs/${SERIAL}/${POOL}.${SNAPSHOT}.gz
+    ${S3} rm s3://${S3_BUCKET}/${SERIAL}/${POOL}.${SNAPSHOT}.gz
 }
 
 # Creating snapshots, and making sure it all works properly.
@@ -354,7 +356,7 @@ send_snapshot() {
     zfs send -Rv ${POOL}@${SNAPSHOT} | pigz -p ${PIGZ_CPUS}| | pv |\
     ${S3} --acl-private --no-progress\
       --multipart-chunk-size-mb=${MULTIPART_MB}  put - \
-      s3://zfs/${SERIAL}/${POOL}.${SNAPSHOT}.gz
+      s3://${S3_BUCKET}/${SERIAL}/${POOL}.${SNAPSHOT}.gz
     if [ $? -gt 0 ] ; then
         echo "zfs send to S3 failed.  Please invesitgate"
         exit 1
@@ -362,7 +364,7 @@ send_snapshot() {
         echo "ZFS send succeeded!"
     fi
     echo "Verifying snapshot file exists"
-    ${S3} ls -H s3://zfs/${SERIAL}/${POOL}.${SNAPSHOT}.gz | grep ${SNAPSHOT} \
+    ${S3} ls -H s3://${S3_BUCKET}/${SERIAL}/${POOL}.${SNAPSHOT}.gz | grep ${SNAPSHOT} \
     >> /dev/null 2>&1
     if [ $? -gt 0 ] ; then
         echo "Snapshot file was not found in object store!"
@@ -388,7 +390,7 @@ destroy_pool () {
 receive_pool () {
     local POOL=$1
     echo "Receiving pool backup"
-    ${S3} --no-progress get s3://zfs/${SERIAL}/${POOL}.${SNAPSHOT}.gz - | pv | \
+    ${S3} --no-progress get s3://${S3_BUCKET}/${SERIAL}/${POOL}.${SNAPSHOT}.gz - | pv | \
     pigz -p ${PIGZ_CPUS} -d | zfs receive -F ${POOL}
     if [ $? -gt 0 ] ; then
         echo "ZFS receive failed. Please invesitgate"
